@@ -14,6 +14,7 @@ interface Agent {
   type: 'carnivore' | 'herbivore' | 'neutral'
   reproCooldown?: number
   metabolism: number
+  lastAteTicks?: number
 }
 
 interface Food {
@@ -64,6 +65,7 @@ export function LifeSim(): JSX.Element {
         type,
         reproCooldown: Math.floor(Math.random() * 300),
         metabolism,
+        lastAteTicks: Math.floor(Math.random() * 200),
       })
     }
     agentsRef.current = initialAgents
@@ -104,7 +106,7 @@ export function LifeSim(): JSX.Element {
       const currentHerbivores = agentsRef.current.filter((a) => a.type === 'herbivore').length
       let spawnedHerbivores = 0
       for (const agent of agentsRef.current) {
-        let { x, y, dx, dy, energy, age, speed, type, size, reproCooldown = 0, metabolism } = agent
+        let { x, y, dx, dy, energy, age, speed, type, size, reproCooldown = 0, metabolism, lastAteTicks = 0 } = agent
         if (metabolism === undefined) {
           const baseMetabolism = type === 'carnivore' ? 0.14 : type === 'herbivore' ? 0.07 : 0.055
           metabolism = Math.max(0.02, baseMetabolism + (Math.random() - 0.5) * 0.03)
@@ -176,9 +178,11 @@ export function LifeSim(): JSX.Element {
           }
         }
 
-        // Baseline wandering for all to prevent stalling; reduce when pursuing
+        // Baseline wandering for all to prevent stalling; reduce when pursuing.
+        // Carnivores that are not pursuing search more aggressively.
         const baseWander = type === 'neutral' ? 0.12 : 0.06
-        const wanderStrength = pursuing ? baseWander * 0.3 : baseWander
+        const searchBoost = type === 'carnivore' && !pursuing ? 1.8 : 1.0
+        const wanderStrength = (pursuing ? baseWander * 0.3 : baseWander * searchBoost)
         dx += (Math.random() - 0.5) * wanderStrength
         dy += (Math.random() - 0.5) * wanderStrength
 
@@ -212,6 +216,7 @@ export function LifeSim(): JSX.Element {
             if (dist < 8) {
               energy += 35
               foodRef.current.splice(i, 1)
+              lastAteTicks = 0
               break
             }
           }
@@ -254,6 +259,7 @@ export function LifeSim(): JSX.Element {
               if (dist < 8) {
                 energy += 45
                 agentsRef.current.splice(i, 1)
+                lastAteTicks = 0
                 break
               }
             }
@@ -272,12 +278,22 @@ export function LifeSim(): JSX.Element {
         ctx.fill()
         ctx.stroke()
 
-        // Per-agent metabolism to avoid synchronized deaths
-        energy -= metabolism * timeScale
+        // Per-agent metabolism; extra starvation if carnivore hasn't eaten recently or no prey exists
+        lastAteTicks += 1
+        let starvationFactor = 0
+        if (type === 'carnivore') {
+          if (currentHerbivores === 0) {
+            starvationFactor += 1.2
+          }
+          if (lastAteTicks > 900) starvationFactor += 1.0
+          else if (lastAteTicks > 600) starvationFactor += 0.6
+          else if (lastAteTicks > 300) starvationFactor += 0.3
+        }
+        energy -= metabolism * (1 + starvationFactor) * timeScale
         age += 0.05
         if (reproCooldown > 0) reproCooldown -= 1
 
-        if (energy > 0 && age < 800) updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size, reproCooldown, metabolism })
+        if (energy > 0 && age < 800) updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size, reproCooldown, metabolism, lastAteTicks })
       }
 
       agentsRef.current = updatedAgents
