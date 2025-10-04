@@ -188,24 +188,24 @@ export function LifeSim(): JSX.Element {
               dx += (Math.random() - 0.5) * 0.06
               dy += (Math.random() - 0.5) * 0.06
             }
-            // soft repulsion from nearby food so carnivores don't appear to eat it
-            if (foodRef.current.length > 0) {
-              const nearestFood = foodRef.current.reduce((closest, f) => {
-                const d = Math.hypot(f.x - x, f.y - y)
-                return d < Math.hypot(closest.x - x, closest.y - y) ? f : closest
-              })
-              const fd = Math.hypot(nearestFood.x - x, nearestFood.y - y)
-              if (fd < 12) {
-                const fx = (nearestFood.x - x) / (fd || 1)
-                const fy = (nearestFood.y - y) / (fd || 1)
-                dx -= fx * 0.5
-                dy -= fy * 0.5
-              }
-            }
           } else {
             // wander if no prey exists
             dx += (Math.random() - 0.5) * 0.06
             dy += (Math.random() - 0.5) * 0.06
+          }
+          // Always repel carnivores from nearby food so they never appear to eat it
+          if (foodRef.current.length > 0) {
+            const nearestFood = foodRef.current.reduce((closest, f) => {
+              const d = Math.hypot(f.x - x, f.y - y)
+              return d < Math.hypot(closest.x - x, closest.y - y) ? f : closest
+            })
+            const fd = Math.hypot(nearestFood.x - x, nearestFood.y - y)
+            if (fd < 18) {
+              const fx = (nearestFood.x - x) / (fd || 1)
+              const fy = (nearestFood.y - y) / (fd || 1)
+              dx -= fx * 0.9
+              dy -= fy * 0.9
+            }
           }
         }
 
