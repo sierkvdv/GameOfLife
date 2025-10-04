@@ -15,6 +15,7 @@ interface Agent {
   reproCooldown?: number
   metabolism: number
   lastAteTicks?: number
+  seedCooldown?: number
 }
 
 interface Food {
@@ -68,6 +69,7 @@ export function LifeSim(): JSX.Element {
         reproCooldown: Math.floor(Math.random() * 300),
         metabolism,
         lastAteTicks: Math.floor(Math.random() * 200),
+        seedCooldown: type === 'neutral' ? 150 + Math.floor(Math.random() * 200) : undefined,
       })
     }
     agentsRef.current = initialAgents
@@ -178,9 +180,16 @@ export function LifeSim(): JSX.Element {
         if (type === 'neutral') {
           dx += (Math.random() - 0.5) * 0.1
           dy += (Math.random() - 0.5) * 0.1
-          if (Math.random() < 0.002) {
-            energy += 10
+          // neutrals scatter energy seeds that become food
+          const sc = agent.seedCooldown ?? 0
+          if (sc <= 0 && Math.random() < 0.02) {
+            foodRef.current.push({ id: Date.now() + Math.random(), x, y })
+            agent.seedCooldown = 250 + Math.floor(Math.random() * 200)
+          } else if (agent.seedCooldown && agent.seedCooldown > 0) {
+            agent.seedCooldown -= 1
           }
+          // slow self-gain
+          if (Math.random() < 0.002) energy += 5
         }
 
         // Baseline wandering for all to prevent stalling; reduce when pursuing.
