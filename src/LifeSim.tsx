@@ -42,6 +42,8 @@ export function LifeSim(): JSX.Element {
   const [carnivoreSpeed, setCarnivoreSpeed] = useState(1)
   const [foodSpawnRate, setFoodSpawnRate] = useState(0.02)
   const [timeScale, setTimeScale] = useState(0.7)
+  const [carnivoreMetabolismScale, setCarnivoreMetabolismScale] = useState(1)
+  const [carnivoreCatchRadius, setCarnivoreCatchRadius] = useState(8)
 
   function initializeWorld() {
     const initialAgents: Agent[] = []
@@ -256,7 +258,7 @@ export function LifeSim(): JSX.Element {
             const prey = agentsRef.current[i]
             if (prey.type === 'herbivore') {
               const dist = Math.hypot(prey.x - x, prey.y - y)
-              if (dist < 8) {
+              if (dist < carnivoreCatchRadius) {
                 energy += 45
                 agentsRef.current.splice(i, 1)
                 lastAteTicks = 0
@@ -289,7 +291,7 @@ export function LifeSim(): JSX.Element {
           else if (lastAteTicks > 600) starvationFactor += 0.6
           else if (lastAteTicks > 300) starvationFactor += 0.3
         }
-        energy -= metabolism * (1 + starvationFactor) * timeScale
+        energy -= (type === 'carnivore' ? metabolism * carnivoreMetabolismScale : metabolism) * (1 + starvationFactor) * timeScale
         age += 0.05
         if (reproCooldown > 0) reproCooldown -= 1
 
@@ -352,7 +354,7 @@ export function LifeSim(): JSX.Element {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
-  }, [isRunning, herbivoreSpeed, carnivoreSpeed, foodSpawnRate, timeScale])
+  }, [isRunning, herbivoreSpeed, carnivoreSpeed, foodSpawnRate, timeScale, carnivoreMetabolismScale, carnivoreCatchRadius])
 
   function resetWorld() {
     initializeWorld()
@@ -385,6 +387,12 @@ export function LifeSim(): JSX.Element {
 
         <label className="label">Carnivoor snelheid: {carnivoreSpeed.toFixed(1)}x</label>
         <input className="slider" type="range" min={0.5} max={3} step={0.1} value={carnivoreSpeed} onChange={(e) => setCarnivoreSpeed(parseFloat(e.target.value))} />
+
+        <label className="label">Carnivoor metabolisme: {carnivoreMetabolismScale.toFixed(2)}x</label>
+        <input className="slider" type="range" min={0.5} max={2} step={0.05} value={carnivoreMetabolismScale} onChange={(e) => setCarnivoreMetabolismScale(parseFloat(e.target.value))} />
+
+        <label className="label">Carnivoor vang-radius: {carnivoreCatchRadius.toFixed(0)} px</label>
+        <input className="slider" type="range" min={4} max={16} step={1} value={carnivoreCatchRadius} onChange={(e) => setCarnivoreCatchRadius(parseFloat(e.target.value))} />
 
         <label className="label">Voedsel spawn rate: {(foodSpawnRate * 100).toFixed(1)}%</label>
         <input className="slider" type="range" min={0.005} max={0.05} step={0.005} value={foodSpawnRate} onChange={(e) => setFoodSpawnRate(parseFloat(e.target.value))} />
