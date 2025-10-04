@@ -283,9 +283,11 @@ export function LifeSim(): JSX.Element {
           }
 
           // Reproduction: if energetic and not on cooldown, spawn a child with slight mutations
+          // Reproduce only shortly after eating to avoid "spontaneous" spawns without food
           if (
             energy > herbivoreReproThreshold &&
             reproCooldown <= 0 &&
+            lastAteTicks < 60 &&
             currentHerbivores + spawnedHerbivores < maxHerbivores
           ) {
             const childSpeed = Math.max(0.4, Math.min(2.0, speed * (0.95 + Math.random() * 0.1)))
@@ -307,7 +309,7 @@ export function LifeSim(): JSX.Element {
             }
             updatedAgents.push(child)
             spawnedHerbivores += 1
-            energy = 45
+            energy = 35
             reproCooldown = 600
           }
         }
