@@ -17,6 +17,7 @@ interface Agent {
   lastAteTicks?: number
   seedCooldown?: number
   stuckTicks?: number
+  targetId?: number
 }
 
 interface Food {
@@ -169,8 +170,9 @@ export function LifeSim(): JSX.Element {
               const d = Math.hypot(p.x - x, p.y - y)
               return d < Math.hypot(closest.x - x, closest.y - y) ? p : closest
             })
+            const vis = agent.vision * (0.95 + Math.random() * 0.1)
             const dist = Math.hypot(nearest.x - x, nearest.y - y)
-            if (dist < agent.vision) {
+            if (dist < vis) {
               // stronger pursuit strictly towards herbivores
               const ux = (nearest.x - x) / (dist || 1)
               const uy = (nearest.y - y) / (dist || 1)
@@ -385,7 +387,7 @@ export function LifeSim(): JSX.Element {
           if (type === 'herbivore' && eatenHerbivores.has(agent.id)) {
             // skip adding eaten herbivore
           } else {
-            updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size, reproCooldown, metabolism, lastAteTicks, stuckTicks })
+            updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size, reproCooldown, metabolism, lastAteTicks, stuckTicks, targetId })
           }
         }
       }
