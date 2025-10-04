@@ -34,12 +34,14 @@ export function LifeSim(): JSX.Element {
   const [herbivoreSpeed, setHerbivoreSpeed] = useState(1)
   const [carnivoreSpeed, setCarnivoreSpeed] = useState(1)
   const [foodSpawnRate, setFoodSpawnRate] = useState(0.02)
+  const [timeScale, setTimeScale] = useState(0.7)
 
   useEffect(() => {
     const initialAgents: Agent[] = []
     for (let i = 0; i < INITIAL_AGENTS; i++) {
       const typeRand = Math.random()
-      const type: Agent['type'] = typeRand < 0.4 ? 'herbivore' : typeRand < 0.7 ? 'neutral' : 'carnivore'
+      // Favor herbivores and neutrals; reduce carnivores to ~10%
+      const type: Agent['type'] = typeRand < 0.55 ? 'herbivore' : typeRand < 0.9 ? 'neutral' : 'carnivore'
       initialAgents.push({
         id: i,
         x: Math.random() * WORLD_WIDTH,
@@ -48,7 +50,7 @@ export function LifeSim(): JSX.Element {
         dy: (Math.random() - 0.5) * 2,
         energy: 100,
         age: 0,
-        speed: 0.5 + Math.random() * 1.5,
+        speed: 0.5 + Math.random() * 1.2,
         vision: 40 + Math.random() * 20,
         size: 5,
         type,
@@ -97,8 +99,25 @@ export function LifeSim(): JSX.Element {
           })
           const dist = Math.hypot(nearestFood.x - x, nearestFood.y - y)
           if (dist < agent.vision) {
-            dx += ((nearestFood.x - x) / dist) * 0.3
-            dy += ((nearestFood.y - y) / dist) * 0.3
+            dx += ((nearestFood.x - x) / dist) * 0.25
+            dy += ((nearestFood.y - y) / dist) * 0.25
+          }
+        }
+
+        // Herbivores flee from nearby carnivores
+        if (type === 'herbivore') {
+          const hunters = agentsRef.current.filter((a) => a.type === 'carnivore')
+          if (hunters.length > 0) {
+            const nearestHunter = hunters.reduce((closest, p) => {
+              const d = Math.hypot(p.x - x, p.y - y)
+              return d < Math.hypot(closest.x - x, closest.y - y) ? p : closest
+            })
+            const pd = Math.hypot(nearestHunter.x - x, nearestHunter.y - y)
+            if (pd < agent.vision * 0.9) {
+              // Accelerate away a bit stronger than food attraction
+              dx -= ((nearestHunter.x - x) / (pd || 1)) * 0.35
+              dy -= ((nearestHunter.y - y) / (pd || 1)) * 0.35
+            }
           }
         }
 
@@ -111,8 +130,8 @@ export function LifeSim(): JSX.Element {
             })
             const dist = Math.hypot(nearest.x - x, nearest.y - y)
             if (dist < agent.vision) {
-              dx += ((nearest.x - x) / dist) * 0.4
-              dy += ((nearest.y - y) / dist) * 0.4
+              dx += ((nearest.x - x) / dist) * 0.25
+              dy += ((nearest.y - y) / dist) * 0.25
             }
           }
         }
@@ -125,10 +144,19 @@ export function LifeSim(): JSX.Element {
           }
         }
 
-        x += dx * adjustedSpeed
-        y += dy * adjustedSpeed
+        // Apply movement with global time scale
+        x += dx * adjustedSpeed * timeScale
+        y += dy * adjustedSpeed * timeScale
         dx *= 0.95
         dy *= 0.95
+
+        // Cap velocity to avoid runaway speeds
+        const maxVel = 2.5
+        const spd = Math.hypot(dx, dy)
+        if (spd > maxVel) {
+          dx = (dx / spd) * maxVel
+          dy = (dy / spd) * maxVel
+        }
 
         if (x < 0 || x > WORLD_WIDTH) dx = -dx
         if (y < 0 || y > WORLD_HEIGHT) dy = -dy
@@ -138,8 +166,8 @@ export function LifeSim(): JSX.Element {
             const f = foodRef.current[i]
             const dist = Math.hypot(f.x - x, f.y - y)
             if (dist < 6) {
-              energy += 25
-              size = Math.min(size + 0.3, 10)
+              energy += 30
+              size = Math.min(size + 0.25, 10)
               foodRef.current.splice(i, 1)
               break
             }
@@ -151,9 +179,9 @@ export function LifeSim(): JSX.Element {
             const prey = agentsRef.current[i]
             if (prey.type === 'herbivore') {
               const dist = Math.hypot(prey.x - x, prey.y - y)
-              if (dist < 6) {
-                energy += 50
-                size = Math.min(size + 0.5, 12)
+              if (dist < 4) {
+                energy += 45
+                size = Math.min(size + 0.4, 12)
                 agentsRef.current.splice(i, 1)
                 break
               }
@@ -169,9 +197,10 @@ export function LifeSim(): JSX.Element {
         ctx.fill()
         ctx.stroke()
 
-        energy -= type === 'carnivore' ? 0.25 : type === 'herbivore' ? 0.15 : 0.1
+        // Slower, more gradual energy decay
+        energy -= (type === 'carnivore' ? 0.15 : type === 'herbivore' ? 0.08 : 0.06) * timeScale
         age += 0.05
-        size = Math.max(4, size - 0.01)
+        size = Math.max(4, size - 0.008 * timeScale)
 
         if (energy > 0 && age < 800) updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size })
       }
@@ -206,6 +235,9 @@ export function LifeSim(): JSX.Element {
       </div>
 
       <div className="controls">
+        <label className="label">Tijd-schaal: {timeScale.toFixed(2)}x</label>
+        <input className="slider" type="range" min={0.25} max={2} step={0.05} value={timeScale} onChange={(e) => setTimeScale(parseFloat(e.target.value))} />
+
         <label className="label">Herbivoor snelheid: {herbivoreSpeed.toFixed(1)}x</label>
         <input className="slider" type="range" min={0.5} max={3} step={0.1} value={herbivoreSpeed} onChange={(e) => setHerbivoreSpeed(parseFloat(e.target.value))} />
 
