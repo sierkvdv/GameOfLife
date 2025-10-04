@@ -86,10 +86,9 @@ export function LifeSim(): JSX.Element {
       }
 
       foodRef.current.forEach((f) => {
-        ctx.beginPath()
-        ctx.arc(f.x, f.y, 3, 0, Math.PI * 2)
-        ctx.fillStyle = '#84cc16'
-        ctx.fill()
+        // draw food as yellow squares for clear distinction
+        ctx.fillStyle = '#facc15'
+        ctx.fillRect(f.x - 3, f.y - 3, 6, 6)
       })
 
       const updatedAgents: Agent[] = []
@@ -139,7 +138,15 @@ export function LifeSim(): JSX.Element {
             if (dist < agent.vision) {
               dx += ((nearest.x - x) / dist) * 0.25
               dy += ((nearest.y - y) / dist) * 0.25
+            } else {
+              // wander if prey is far
+              dx += (Math.random() - 0.5) * 0.06
+              dy += (Math.random() - 0.5) * 0.06
             }
+          } else {
+            // wander if no prey exists
+            dx += (Math.random() - 0.5) * 0.06
+            dy += (Math.random() - 0.5) * 0.06
           }
         }
 
@@ -150,6 +157,11 @@ export function LifeSim(): JSX.Element {
             energy += 10
           }
         }
+
+        // Baseline wandering for all to prevent stalling
+        const wanderStrength = type === 'neutral' ? 0.08 : 0.04
+        dx += (Math.random() - 0.5) * wanderStrength
+        dy += (Math.random() - 0.5) * wanderStrength
 
         // Apply movement with global time scale
         x += dx * adjustedSpeed * timeScale
@@ -163,6 +175,12 @@ export function LifeSim(): JSX.Element {
         if (spd > maxVel) {
           dx = (dx / spd) * maxVel
           dy = (dy / spd) * maxVel
+        }
+        // Minimum speed kick if nearly stopped
+        if (spd < 0.05) {
+          const angle = Math.random() * Math.PI * 2
+          dx += Math.cos(angle) * 0.2
+          dy += Math.sin(angle) * 0.2
         }
 
         if (x < 0 || x > WORLD_WIDTH) dx = -dx
