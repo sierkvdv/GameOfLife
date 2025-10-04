@@ -104,6 +104,7 @@ export function LifeSim(): JSX.Element {
         const adjustedSpeed =
           type === 'herbivore' ? speed * herbivoreSpeed : type === 'carnivore' ? speed * carnivoreSpeed : speed * 0.8
 
+        let pursuing = false
         if (type === 'herbivore' && foodRef.current.length > 0) {
           const nearestFood = foodRef.current.reduce((closest, f) => {
             const d = Math.hypot(f.x - x, f.y - y)
@@ -111,8 +112,9 @@ export function LifeSim(): JSX.Element {
           })
           const dist = Math.hypot(nearestFood.x - x, nearestFood.y - y)
           if (dist < agent.vision) {
-            dx += ((nearestFood.x - x) / dist) * 0.25
-            dy += ((nearestFood.y - y) / dist) * 0.25
+            dx += ((nearestFood.x - x) / dist) * 0.45
+            dy += ((nearestFood.y - y) / dist) * 0.45
+            pursuing = true
           }
         }
 
@@ -142,8 +144,9 @@ export function LifeSim(): JSX.Element {
             })
             const dist = Math.hypot(nearest.x - x, nearest.y - y)
             if (dist < agent.vision) {
-              dx += ((nearest.x - x) / dist) * 0.25
-              dy += ((nearest.y - y) / dist) * 0.25
+              dx += ((nearest.x - x) / dist) * 0.35
+              dy += ((nearest.y - y) / dist) * 0.35
+              pursuing = true
             } else {
               // wander if prey is far
               dx += (Math.random() - 0.5) * 0.06
@@ -164,8 +167,9 @@ export function LifeSim(): JSX.Element {
           }
         }
 
-        // Baseline wandering for all to prevent stalling
-        const wanderStrength = type === 'neutral' ? 0.12 : 0.06
+        // Baseline wandering for all to prevent stalling; reduce when pursuing
+        const baseWander = type === 'neutral' ? 0.12 : 0.06
+        const wanderStrength = pursuing ? baseWander * 0.3 : baseWander
         dx += (Math.random() - 0.5) * wanderStrength
         dy += (Math.random() - 0.5) * wanderStrength
 
@@ -196,7 +200,7 @@ export function LifeSim(): JSX.Element {
           for (let i = 0; i < foodRef.current.length; i++) {
             const f = foodRef.current[i]
             const dist = Math.hypot(f.x - x, f.y - y)
-            if (dist < 6) {
+            if (dist < 8) {
               energy += 30
               foodRef.current.splice(i, 1)
               break
@@ -237,7 +241,7 @@ export function LifeSim(): JSX.Element {
             const prey = agentsRef.current[i]
             if (prey.type === 'herbivore') {
               const dist = Math.hypot(prey.x - x, prey.y - y)
-              if (dist < 4) {
+              if (dist < 8) {
                 energy += 45
                 agentsRef.current.splice(i, 1)
                 break
