@@ -30,6 +30,7 @@ const WORLD_HEIGHT = 500
 const INITIAL_AGENTS = 100
 const INITIAL_FOOD = 60
 const MAX_HERBIVORES = 220
+const MAX_CARNIVORES = 80
 
 export function LifeSim(): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -114,6 +115,7 @@ export function LifeSim(): JSX.Element {
       const updatedAgents: Agent[] = []
       const eatenHerbivores = new Set<number>()
       const currentHerbivores = agentsRef.current.filter((a) => a.type === 'herbivore').length
+      const currentCarnivores = agentsRef.current.filter((a) => a.type === 'carnivore').length
       let spawnedHerbivores = 0
       for (const agent of agentsRef.current) {
         let { x, y, dx, dy, energy, age, speed, type, size, reproCooldown = 0, metabolism, lastAteTicks = 0, stuckTicks = 0 } = agent
@@ -318,6 +320,37 @@ export function LifeSim(): JSX.Element {
                 break
               }
             }
+          }
+
+          // Reproduction for carnivores: split when energy is high and cooldown elapsed
+          if (
+            energy > 180 &&
+            reproCooldown <= 0 &&
+            currentCarnivores < MAX_CARNIVORES
+          ) {
+            const childSpeed = Math.max(0.6, Math.min(2.2, speed * (0.95 + Math.random() * 0.1)))
+            const childVision = Math.max(50, Math.min(90, agent.vision * (0.95 + Math.random() * 0.1)))
+            const child: Agent = {
+              id: nextIdRef.current++,
+              x: x + (Math.random() - 0.5) * 10,
+              y: y + (Math.random() - 0.5) * 10,
+              dx: dx + (Math.random() - 0.5) * 0.5,
+              dy: dy + (Math.random() - 0.5) * 0.5,
+              energy: 70,
+              age: 0,
+              speed: childSpeed,
+              vision: childVision,
+              size: 5,
+              type: 'carnivore',
+              reproCooldown: 700,
+              metabolism: Math.max(0.02, (0.14 + (Math.random() - 0.5) * 0.03)),
+              lastAteTicks: 0,
+              seedCooldown: undefined,
+              stuckTicks: 0,
+            }
+            updatedAgents.push(child)
+            energy = 90
+            reproCooldown = 700
           }
         }
 
