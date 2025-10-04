@@ -123,7 +123,7 @@ export function LifeSim(): JSX.Element {
       const currentCarnivores = agentsRef.current.filter((a) => a.type === 'carnivore').length
       let spawnedHerbivores = 0
       for (const agent of agentsRef.current) {
-        let { x, y, dx, dy, energy, age, speed, type, size, reproCooldown = 0, metabolism, lastAteTicks = 0, stuckTicks = 0 } = agent
+        let { x, y, dx, dy, energy, age, speed, type, size, reproCooldown = 0, metabolism, lastAteTicks = 0, stuckTicks = 0, targetId } = agent
         if (metabolism === undefined) {
           const baseMetabolism = type === 'carnivore' ? 0.14 : type === 'herbivore' ? 0.07 : 0.055
           metabolism = Math.max(0.02, baseMetabolism + (Math.random() - 0.5) * 0.03)
