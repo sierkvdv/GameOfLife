@@ -12,6 +12,7 @@ interface Agent {
   vision: number
   size: number
   type: 'carnivore' | 'herbivore' | 'neutral'
+  reproCooldown?: number
 }
 
 interface Food {
@@ -24,6 +25,7 @@ const WORLD_WIDTH = 800
 const WORLD_HEIGHT = 500
 const INITIAL_AGENTS = 100
 const INITIAL_FOOD = 60
+const MAX_HERBIVORES = 220
 
 export function LifeSim(): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -32,6 +34,7 @@ export function LifeSim(): JSX.Element {
   const agentsRef = useRef<Agent[]>([])
   const foodRef = useRef<Food[]>([])
   const historyRef = useRef<Array<{ herb: number; carn: number; neutral: number }>>([])
+  const nextIdRef = useRef<number>(INITIAL_AGENTS)
   const [isRunning, setIsRunning] = useState(false)
   const [herbivoreSpeed, setHerbivoreSpeed] = useState(1)
   const [carnivoreSpeed, setCarnivoreSpeed] = useState(1)
@@ -55,6 +58,7 @@ export function LifeSim(): JSX.Element {
         vision: 40 + Math.random() * 20,
         size: 5,
         type,
+        reproCooldown: Math.floor(Math.random() * 300)
       })
     }
     agentsRef.current = initialAgents
@@ -92,8 +96,10 @@ export function LifeSim(): JSX.Element {
       })
 
       const updatedAgents: Agent[] = []
+      const currentHerbivores = agentsRef.current.filter((a) => a.type === 'herbivore').length
+      let spawnedHerbivores = 0
       for (const agent of agentsRef.current) {
-        let { x, y, dx, dy, energy, age, speed, type, size } = agent
+        let { x, y, dx, dy, energy, age, speed, type, size, reproCooldown = 0 } = agent
 
         const adjustedSpeed =
           type === 'herbivore' ? speed * herbivoreSpeed : type === 'carnivore' ? speed * carnivoreSpeed : speed * 0.8
@@ -196,6 +202,34 @@ export function LifeSim(): JSX.Element {
               break
             }
           }
+
+          // Reproduction: if energetic and not on cooldown, spawn a child with slight mutations
+          if (
+            energy > 160 &&
+            reproCooldown <= 0 &&
+            currentHerbivores + spawnedHerbivores < MAX_HERBIVORES
+          ) {
+            const childSpeed = Math.max(0.4, Math.min(2.0, speed * (0.95 + Math.random() * 0.1)))
+            const childVision = Math.max(30, Math.min(70, agent.vision * (0.95 + Math.random() * 0.1)))
+            const child: Agent = {
+              id: nextIdRef.current++,
+              x: x + (Math.random() - 0.5) * 10,
+              y: y + (Math.random() - 0.5) * 10,
+              dx: dx + (Math.random() - 0.5) * 0.5,
+              dy: dy + (Math.random() - 0.5) * 0.5,
+              energy: 80,
+              age: 0,
+              speed: childSpeed,
+              vision: childVision,
+              size: 5,
+              type: 'herbivore',
+              reproCooldown: 600,
+            }
+            updatedAgents.push(child)
+            spawnedHerbivores += 1
+            energy *= 0.6
+            reproCooldown = 600
+          }
         }
 
         if (type === 'carnivore') {
@@ -227,8 +261,9 @@ export function LifeSim(): JSX.Element {
         // Slower, more gradual energy decay
         energy -= (type === 'carnivore' ? 0.15 : type === 'herbivore' ? 0.08 : 0.06) * timeScale
         age += 0.05
+        if (reproCooldown > 0) reproCooldown -= 1
 
-        if (energy > 0 && age < 800) updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size })
+        if (energy > 0 && age < 800) updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size, reproCooldown })
       }
 
       agentsRef.current = updatedAgents
