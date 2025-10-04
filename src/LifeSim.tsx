@@ -171,17 +171,17 @@ export function LifeSim(): JSX.Element {
             })
             const dist = Math.hypot(nearest.x - x, nearest.y - y)
             if (dist < agent.vision) {
-              // steer toward prey using velocity blending for tighter pursuit
+              // stronger pursuit strictly towards herbivores
               const ux = (nearest.x - x) / (dist || 1)
               const uy = (nearest.y - y) / (dist || 1)
-              dx = dx * 0.85 + ux * 0.7
-              dy = dy * 0.85 + uy * 0.7
+              dx = dx * 0.8 + ux * 0.9
+              dy = dy * 0.8 + uy * 0.9
               pursuing = true
               // if moving too slowly while pursuing, give an extra push toward the target
               const sp = Math.hypot(dx, dy)
               if (sp < 0.25) {
-                dx += ux * 0.6
-                dy += uy * 0.6
+                dx += ux * 0.8
+                dy += uy * 0.8
               }
             } else {
               // wander if prey is far
@@ -193,20 +193,7 @@ export function LifeSim(): JSX.Element {
             dx += (Math.random() - 0.5) * 0.06
             dy += (Math.random() - 0.5) * 0.06
           }
-          // Always repel carnivores from nearby food so they never appear to eat it
-          if (foodRef.current.length > 0) {
-            const nearestFood = foodRef.current.reduce((closest, f) => {
-              const d = Math.hypot(f.x - x, f.y - y)
-              return d < Math.hypot(closest.x - x, closest.y - y) ? f : closest
-            })
-            const fd = Math.hypot(nearestFood.x - x, nearestFood.y - y)
-            if (fd < 18) {
-              const fx = (nearestFood.x - x) / (fd || 1)
-              const fy = (nearestFood.y - y) / (fd || 1)
-              dx -= fx * 0.9
-              dy -= fy * 0.9
-            }
-          }
+          // Note: no food steering for carnivores (they only chase herbivores)
         }
 
         if (type === 'neutral') {
