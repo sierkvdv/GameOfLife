@@ -330,7 +330,9 @@ export function LifeSim(): JSX.Element {
           if (
             energy > carnivoreReproThreshold &&
             reproCooldown <= 0 &&
-            currentCarnivores < maxCarnivores
+            lastAteTicks < 240 &&
+            currentCarnivores < maxCarnivores &&
+            currentHerbivores > currentCarnivores * 0.8
           ) {
             const childSpeed = Math.max(0.6, Math.min(2.2, speed * (0.95 + Math.random() * 0.1)))
             const childVision = Math.max(50, Math.min(90, agent.vision * (0.95 + Math.random() * 0.1)))
@@ -340,7 +342,7 @@ export function LifeSim(): JSX.Element {
               y: y + (Math.random() - 0.5) * 10,
               dx: dx + (Math.random() - 0.5) * 0.5,
               dy: dy + (Math.random() - 0.5) * 0.5,
-              energy: 70,
+              energy: 60,
               age: 0,
               speed: childSpeed,
               vision: childVision,
@@ -353,7 +355,7 @@ export function LifeSim(): JSX.Element {
               stuckTicks: 0,
             }
             updatedAgents.push(child)
-            energy = 90
+            energy = 80
             reproCooldown = 700
           }
         }
@@ -380,6 +382,11 @@ export function LifeSim(): JSX.Element {
           if (lastAteTicks > 900) starvationFactor += 1.0
           else if (lastAteTicks > 600) starvationFactor += 0.6
           else if (lastAteTicks > 300) starvationFactor += 0.3
+          // Additional scarcity-based starvation: fewer prey per predator -> higher drain
+          const preyPerPred = currentHerbivores / Math.max(1, currentCarnivores)
+          if (preyPerPred < 1) {
+            starvationFactor += (1 - preyPerPred) * 1.2
+          }
         }
         energy -= (type === 'carnivore' ? metabolism * carnivoreMetabolismScale : metabolism) * (1 + starvationFactor) * timeScale
         age += 0.05
