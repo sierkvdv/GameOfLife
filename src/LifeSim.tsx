@@ -29,7 +29,7 @@ const WORLD_WIDTH = 800
 const WORLD_HEIGHT = 500
 const INITIAL_AGENTS = 100
 const INITIAL_FOOD = 60
-const MAX_HERBIVORES = 220
+const MAX_HERBIVORES_DEFAULT = 220
 const MAX_CARNIVORES_DEFAULT = 80
 
 export function LifeSim(): JSX.Element {
@@ -49,6 +49,8 @@ export function LifeSim(): JSX.Element {
   const [carnivoreCatchRadius, setCarnivoreCatchRadius] = useState(8)
   const [carnivoreReproThreshold, setCarnivoreReproThreshold] = useState(180)
   const [maxCarnivores, setMaxCarnivores] = useState(MAX_CARNIVORES_DEFAULT)
+  const [herbivoreReproThreshold, setHerbivoreReproThreshold] = useState(150)
+  const [maxHerbivores, setMaxHerbivores] = useState(MAX_HERBIVORES_DEFAULT)
 
   function initializeWorld() {
     const initialAgents: Agent[] = []
@@ -282,9 +284,9 @@ export function LifeSim(): JSX.Element {
 
           // Reproduction: if energetic and not on cooldown, spawn a child with slight mutations
           if (
-            energy > 150 &&
+            energy > herbivoreReproThreshold &&
             reproCooldown <= 0 &&
-            currentHerbivores + spawnedHerbivores < MAX_HERBIVORES
+            currentHerbivores + spawnedHerbivores < maxHerbivores
           ) {
             const childSpeed = Math.max(0.4, Math.min(2.0, speed * (0.95 + Math.random() * 0.1)))
             const childVision = Math.max(30, Math.min(70, agent.vision * (0.95 + Math.random() * 0.1)))
@@ -448,7 +450,7 @@ export function LifeSim(): JSX.Element {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
-  }, [isRunning, herbivoreSpeed, carnivoreSpeed, foodSpawnRate, timeScale, carnivoreMetabolismScale, carnivoreCatchRadius, carnivoreReproThreshold, maxCarnivores])
+  }, [isRunning, herbivoreSpeed, carnivoreSpeed, foodSpawnRate, timeScale, carnivoreMetabolismScale, carnivoreCatchRadius, carnivoreReproThreshold, maxCarnivores, herbivoreReproThreshold, maxHerbivores])
 
   function resetWorld() {
     initializeWorld()
@@ -494,6 +496,11 @@ export function LifeSim(): JSX.Element {
         <label className="label">Max carnivoren: {maxCarnivores}</label>
         <input className="slider" type="range" min={20} max={160} step={5} value={maxCarnivores} onChange={(e) => setMaxCarnivores(parseFloat(e.target.value))} />
 
+        <label className="label">Herbivoor reproduce-drempel: {herbivoreReproThreshold.toFixed(0)} energie</label>
+        <input className="slider" type="range" min={100} max={220} step={5} value={herbivoreReproThreshold} onChange={(e) => setHerbivoreReproThreshold(parseFloat(e.target.value))} />
+
+        <label className="label">Max herbivoren: {maxHerbivores}</label>
+        <input className="slider" type="range" min={80} max={360} step={10} value={maxHerbivores} onChange={(e) => setMaxHerbivores(parseFloat(e.target.value))} />
         <label className="label">Voedsel spawn rate: {(foodSpawnRate * 100).toFixed(1)}%</label>
         <input className="slider" type="range" min={0.005} max={0.05} step={0.005} value={foodSpawnRate} onChange={(e) => setFoodSpawnRate(parseFloat(e.target.value))} />
       </div>
