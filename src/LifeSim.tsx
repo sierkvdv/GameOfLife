@@ -159,15 +159,15 @@ export function LifeSim(): JSX.Element {
         }
 
         // Baseline wandering for all to prevent stalling
-        const wanderStrength = type === 'neutral' ? 0.08 : 0.04
+        const wanderStrength = type === 'neutral' ? 0.12 : 0.06
         dx += (Math.random() - 0.5) * wanderStrength
         dy += (Math.random() - 0.5) * wanderStrength
 
         // Apply movement with global time scale
         x += dx * adjustedSpeed * timeScale
         y += dy * adjustedSpeed * timeScale
-        dx *= 0.95
-        dy *= 0.95
+        dx *= 0.97
+        dy *= 0.97
 
         // Cap velocity to avoid runaway speeds
         const maxVel = 2.5
@@ -177,10 +177,10 @@ export function LifeSim(): JSX.Element {
           dy = (dy / spd) * maxVel
         }
         // Minimum speed kick if nearly stopped
-        if (spd < 0.05) {
+        if (spd < 0.08) {
           const angle = Math.random() * Math.PI * 2
-          dx += Math.cos(angle) * 0.2
-          dy += Math.sin(angle) * 0.2
+          dx += Math.cos(angle) * 0.35
+          dy += Math.sin(angle) * 0.35
         }
 
         if (x < 0 || x > WORLD_WIDTH) dx = -dx
@@ -192,7 +192,6 @@ export function LifeSim(): JSX.Element {
             const dist = Math.hypot(f.x - x, f.y - y)
             if (dist < 6) {
               energy += 30
-              size = Math.min(size + 0.25, 10)
               foodRef.current.splice(i, 1)
               break
             }
@@ -206,7 +205,6 @@ export function LifeSim(): JSX.Element {
               const dist = Math.hypot(prey.x - x, prey.y - y)
               if (dist < 4) {
                 energy += 45
-                size = Math.min(size + 0.4, 12)
                 agentsRef.current.splice(i, 1)
                 break
               }
@@ -214,8 +212,12 @@ export function LifeSim(): JSX.Element {
           }
         }
 
+        // Size follows energy (grow when eating, shrink when starving)
+        const sizeFromEnergy = Math.max(4, Math.min(12, 4 + energy * 0.04))
+        size = sizeFromEnergy
+
         ctx.beginPath()
-        ctx.arc(x, y, size, 0, Math.PI * 2)
+        ctx.arc(x, y, sizeFromEnergy, 0, Math.PI * 2)
         ctx.fillStyle = type === 'carnivore' ? '#ef4444' : type === 'herbivore' ? '#22c55e' : '#3b82f6'
         ctx.strokeStyle = '#000'
         ctx.lineWidth = 1
@@ -225,7 +227,6 @@ export function LifeSim(): JSX.Element {
         // Slower, more gradual energy decay
         energy -= (type === 'carnivore' ? 0.15 : type === 'herbivore' ? 0.08 : 0.06) * timeScale
         age += 0.05
-        size = Math.max(4, size - 0.008 * timeScale)
 
         if (energy > 0 && age < 800) updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size })
       }
