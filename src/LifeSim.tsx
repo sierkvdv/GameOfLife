@@ -16,6 +16,7 @@ interface Agent {
   metabolism: number
   lastAteTicks?: number
   seedCooldown?: number
+  stuckTicks?: number
 }
 
 interface Food {
@@ -70,6 +71,7 @@ export function LifeSim(): JSX.Element {
         metabolism,
         lastAteTicks: Math.floor(Math.random() * 200),
         seedCooldown: type === 'neutral' ? 150 + Math.floor(Math.random() * 200) : undefined,
+        stuckTicks: 0,
       })
     }
     agentsRef.current = initialAgents
@@ -113,7 +115,7 @@ export function LifeSim(): JSX.Element {
       const currentHerbivores = agentsRef.current.filter((a) => a.type === 'herbivore').length
       let spawnedHerbivores = 0
       for (const agent of agentsRef.current) {
-        let { x, y, dx, dy, energy, age, speed, type, size, reproCooldown = 0, metabolism, lastAteTicks = 0 } = agent
+        let { x, y, dx, dy, energy, age, speed, type, size, reproCooldown = 0, metabolism, lastAteTicks = 0, stuckTicks = 0 } = agent
         if (metabolism === undefined) {
           const baseMetabolism = type === 'carnivore' ? 0.14 : type === 'herbivore' ? 0.07 : 0.055
           metabolism = Math.max(0.02, baseMetabolism + (Math.random() - 0.5) * 0.03)
@@ -162,9 +164,18 @@ export function LifeSim(): JSX.Element {
             })
             const dist = Math.hypot(nearest.x - x, nearest.y - y)
             if (dist < agent.vision) {
-              dx += ((nearest.x - x) / dist) * 0.35
-              dy += ((nearest.y - y) / dist) * 0.35
+              // steer toward prey using velocity blending for tighter pursuit
+              const ux = (nearest.x - x) / (dist || 1)
+              const uy = (nearest.y - y) / (dist || 1)
+              dx = dx * 0.85 + ux * 0.7
+              dy = dy * 0.85 + uy * 0.7
               pursuing = true
+              // if moving too slowly while pursuing, give an extra push toward the target
+              const sp = Math.hypot(dx, dy)
+              if (sp < 0.25) {
+                dx += ux * 0.6
+                dy += uy * 0.6
+              }
             } else {
               // wander if prey is far
               dx += (Math.random() - 0.5) * 0.06
@@ -195,8 +206,8 @@ export function LifeSim(): JSX.Element {
         // Baseline wandering for all to prevent stalling; reduce when pursuing.
         // Carnivores that are not pursuing search more aggressively.
         const baseWander = type === 'neutral' ? 0.12 : 0.06
-        const searchBoost = type === 'carnivore' && !pursuing ? 1.8 : 1.0
-        const wanderStrength = (pursuing ? baseWander * 0.3 : baseWander * searchBoost)
+        const searchBoost = type === 'carnivore' && !pursuing ? 2.0 : 1.0
+        const wanderStrength = (pursuing ? baseWander * 0.15 : baseWander * searchBoost)
         dx += (Math.random() - 0.5) * wanderStrength
         dy += (Math.random() - 0.5) * wanderStrength
 
@@ -207,7 +218,7 @@ export function LifeSim(): JSX.Element {
         dy *= 0.97
 
         // Cap velocity to avoid runaway speeds
-        const maxVel = 2.5
+        const maxVel = type === 'carnivore' ? 3.2 : 2.5
         const spd = Math.hypot(dx, dy)
         if (spd > maxVel) {
           dx = (dx / spd) * maxVel
@@ -220,8 +231,23 @@ export function LifeSim(): JSX.Element {
           dy += Math.sin(angle) * 0.35
         }
 
+        // Stuck detection: if moving too slowly for many ticks, apply strong nudge
+        if (spd < 0.12) stuckTicks += 1
+        else if (stuckTicks > 0) stuckTicks -= 1
+        if (stuckTicks > 60) {
+          const angle = Math.random() * Math.PI * 2
+          dx += Math.cos(angle) * 1.0
+          dy += Math.sin(angle) * 1.0
+          stuckTicks = 0
+        }
+
         if (x < 0 || x > WORLD_WIDTH) dx = -dx
         if (y < 0 || y > WORLD_HEIGHT) dy = -dy
+        // Clamp inside bounds and nudge inward to avoid boundary jitter
+        if (x < 1) { x = 1; dx = Math.abs(dx) + 0.2 }
+        if (x > WORLD_WIDTH - 1) { x = WORLD_WIDTH - 1; dx = -Math.abs(dx) - 0.2 }
+        if (y < 1) { y = 1; dy = Math.abs(dy) + 0.2 }
+        if (y > WORLD_HEIGHT - 1) { y = WORLD_HEIGHT - 1; dy = -Math.abs(dy) - 0.2 }
 
         if (type === 'herbivore') {
           for (let i = 0; i < foodRef.current.length; i++) {
@@ -307,7 +333,7 @@ export function LifeSim(): JSX.Element {
         age += 0.05
         if (reproCooldown > 0) reproCooldown -= 1
 
-        if (energy > 0 && age < 800) updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size, reproCooldown, metabolism, lastAteTicks })
+        if (energy > 0 && age < 800) updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size, reproCooldown, metabolism, lastAteTicks, stuckTicks })
       }
 
       agentsRef.current = updatedAgents
