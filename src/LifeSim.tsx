@@ -27,20 +27,21 @@ const INITIAL_FOOD = 60
 
 export function LifeSim(): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const popCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const animationRef = useRef<number | null>(null)
   const agentsRef = useRef<Agent[]>([])
   const foodRef = useRef<Food[]>([])
+  const historyRef = useRef<Array<{ herb: number; carn: number; neutral: number }>>([])
   const [isRunning, setIsRunning] = useState(false)
   const [herbivoreSpeed, setHerbivoreSpeed] = useState(1)
   const [carnivoreSpeed, setCarnivoreSpeed] = useState(1)
   const [foodSpawnRate, setFoodSpawnRate] = useState(0.02)
   const [timeScale, setTimeScale] = useState(0.7)
 
-  useEffect(() => {
+  function initializeWorld() {
     const initialAgents: Agent[] = []
     for (let i = 0; i < INITIAL_AGENTS; i++) {
       const typeRand = Math.random()
-      // Favor herbivores and neutrals; reduce carnivores to ~10%
       const type: Agent['type'] = typeRand < 0.55 ? 'herbivore' : typeRand < 0.9 ? 'neutral' : 'carnivore'
       initialAgents.push({
         id: i,
@@ -63,6 +64,12 @@ export function LifeSim(): JSX.Element {
       initialFood.push({ id: i, x: Math.random() * WORLD_WIDTH, y: Math.random() * WORLD_HEIGHT })
     }
     foodRef.current = initialFood
+
+    historyRef.current = []
+  }
+
+  useEffect(() => {
+    initializeWorld()
   }, [])
 
   useEffect(() => {
@@ -207,6 +214,51 @@ export function LifeSim(): JSX.Element {
 
       agentsRef.current = updatedAgents
 
+      // Collect population counts and draw chart
+      const herb = updatedAgents.filter((a) => a.type === 'herbivore').length
+      const carn = updatedAgents.filter((a) => a.type === 'carnivore').length
+      const neutral = updatedAgents.filter((a) => a.type === 'neutral').length
+      const hist = historyRef.current
+      hist.push({ herb, carn, neutral })
+      if (hist.length > 300) hist.shift()
+
+      const popCanvas = popCanvasRef.current
+      if (popCanvas) {
+        const pctx = popCanvas.getContext('2d')
+        if (pctx) {
+          const w = popCanvas.width
+          const h = popCanvas.height
+          pctx.clearRect(0, 0, w, h)
+          // axes
+          pctx.strokeStyle = '#334155'
+          pctx.lineWidth = 1
+          pctx.beginPath()
+          pctx.moveTo(0, h - 0.5)
+          pctx.lineTo(w, h - 0.5)
+          pctx.stroke()
+
+          const maxY = Math.max(10, ...hist.map((s) => s.herb + s.carn + s.neutral))
+          const stepX = w / Math.max(1, hist.length - 1)
+
+          const drawSeries = (key: 'herb' | 'carn' | 'neutral', color: string) => {
+            pctx.beginPath()
+            pctx.strokeStyle = color
+            pctx.lineWidth = 2
+            hist.forEach((s, i) => {
+              const x = i * stepX
+              const y = h - (s[key] / maxY) * (h - 6) - 3
+              if (i === 0) pctx.moveTo(x, y)
+              else pctx.lineTo(x, y)
+            })
+            pctx.stroke()
+          }
+
+          drawSeries('herb', '#22c55e')
+          drawSeries('carn', '#ef4444')
+          drawSeries('neutral', '#3b82f6')
+        }
+      }
+
       if (isRunning) animationRef.current = requestAnimationFrame(update)
     }
 
@@ -216,7 +268,11 @@ export function LifeSim(): JSX.Element {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
-  }, [isRunning, herbivoreSpeed, carnivoreSpeed, foodSpawnRate])
+  }, [isRunning, herbivoreSpeed, carnivoreSpeed, foodSpawnRate, timeScale])
+
+  function resetWorld() {
+    initializeWorld()
+  }
 
   return (
     <div className="container">
@@ -231,8 +287,10 @@ export function LifeSim(): JSX.Element {
       <div className="row">
         <button className="btn" onClick={() => setIsRunning(true)}>Start</button>
         <button className="btn" onClick={() => setIsRunning(false)}>Pause</button>
-        <button className="btn" onClick={() => (window.location.href = window.location.href)}>Reset</button>
+        <button className="btn" onClick={resetWorld}>Reset wereld</button>
       </div>
+
+      <canvas ref={popCanvasRef} width={WORLD_WIDTH} height={120} />
 
       <div className="controls">
         <label className="label">Tijd-schaal: {timeScale.toFixed(2)}x</label>
