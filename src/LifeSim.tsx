@@ -112,6 +112,7 @@ export function LifeSim(): JSX.Element {
       })
 
       const updatedAgents: Agent[] = []
+      const eatenHerbivores = new Set<number>()
       const currentHerbivores = agentsRef.current.filter((a) => a.type === 'herbivore').length
       let spawnedHerbivores = 0
       for (const agent of agentsRef.current) {
@@ -312,7 +313,7 @@ export function LifeSim(): JSX.Element {
               const dist = Math.hypot(prey.x - x, prey.y - y)
               if (dist < carnivoreCatchRadius) {
                 energy += 45
-                agentsRef.current.splice(i, 1)
+                eatenHerbivores.add(prey.id)
                 lastAteTicks = 0
                 break
               }
@@ -347,7 +348,13 @@ export function LifeSim(): JSX.Element {
         age += 0.05
         if (reproCooldown > 0) reproCooldown -= 1
 
-        if (energy > 0 && age < 800) updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size, reproCooldown, metabolism, lastAteTicks, stuckTicks })
+        if (energy > 0 && age < 800) {
+          if (type === 'herbivore' && eatenHerbivores.has(agent.id)) {
+            // skip adding eaten herbivore
+          } else {
+            updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size, reproCooldown, metabolism, lastAteTicks, stuckTicks })
+          }
+        }
       }
 
       agentsRef.current = updatedAgents
