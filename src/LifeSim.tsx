@@ -50,7 +50,7 @@ export function LifeSim(): JSX.Element {
     for (let i = 0; i < INITIAL_AGENTS; i++) {
       const typeRand = Math.random()
       const type: Agent['type'] = typeRand < 0.55 ? 'herbivore' : typeRand < 0.9 ? 'neutral' : 'carnivore'
-      const baseEnergy = type === 'herbivore' ? 35 : type === 'carnivore' ? 55 : 40
+      const baseEnergy = type === 'herbivore' ? 50 : type === 'carnivore' ? 55 : 40
       const baseMetabolism = type === 'carnivore' ? 0.14 : type === 'herbivore' ? 0.07 : 0.055
       const metabolism = Math.max(0.02, baseMetabolism + (Math.random() - 0.5) * 0.03)
       initialAgents.push({
@@ -94,7 +94,10 @@ export function LifeSim(): JSX.Element {
     const update = () => {
       ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
 
-      if (Math.random() < foodSpawnRate) {
+      // Dynamic food spawn: when herbivores are scarce, spawn more to avoid early collapse
+      const herbCount = agentsRef.current.filter((a) => a.type === 'herbivore').length
+      const scarcityBoost = herbCount < 40 ? 3 : herbCount < 70 ? 1.8 : 1
+      if (Math.random() < foodSpawnRate * scarcityBoost) {
         foodRef.current.push({ id: Date.now(), x: Math.random() * WORLD_WIDTH, y: Math.random() * WORLD_HEIGHT })
       }
 
