@@ -164,39 +164,50 @@ export function LifeSim(): JSX.Element {
         }
 
         if (type === 'carnivore') {
-          const prey = agentsRef.current.filter((a) => a.type === 'herbivore')
-          if (prey.length > 0) {
-            const nearest = prey.reduce((closest, p) => {
-              const d = Math.hypot(p.x - x, p.y - y)
-              return d < Math.hypot(closest.x - x, closest.y - y) ? p : closest
-            })
+          const herbivores = agentsRef.current.filter((a) => a.type === 'herbivore')
+          if (herbivores.length > 0) {
+            let target = targetId !== undefined ? agentsRef.current.find(a => a.id === targetId && a.type === 'herbivore') : undefined
+            const retargetDistance = agent.vision * 1.3
+            if (!target) {
+              const jitter = 1 + ((agent.id % 13) - 6) * 0.01
+              target = herbivores.reduce((closest, p) => {
+                const d = Math.hypot(p.x - x, p.y - y) * (p.id % 7 === 0 ? 1.05 : 1.0) * jitter
+                return d < Math.hypot(closest.x - x, closest.y - y) ? p : closest
+              })
+              targetId = target.id
+            } else {
+              const td = Math.hypot(target.x - x, target.y - y)
+              if (td > retargetDistance) {
+                const jitter = 1 + ((agent.id % 11) - 5) * 0.01
+                target = herbivores.reduce((closest, p) => {
+                  const d = Math.hypot(p.x - x, p.y - y) * jitter
+                  return d < Math.hypot(closest.x - x, closest.y - y) ? p : closest
+                })
+                targetId = target.id
+              }
+            }
+
             const vis = agent.vision * (0.95 + Math.random() * 0.1)
-            const dist = Math.hypot(nearest.x - x, nearest.y - y)
-            if (dist < vis) {
-              // stronger pursuit strictly towards herbivores
-              const ux = (nearest.x - x) / (dist || 1)
-              const uy = (nearest.y - y) / (dist || 1)
+            const dist = target ? Math.hypot(target.x - x, target.y - y) : Infinity
+            if (target && dist < vis) {
+              const ux = (target.x - x) / (dist || 1)
+              const uy = (target.y - y) / (dist || 1)
               dx = dx * 0.8 + ux * 0.9
               dy = dy * 0.8 + uy * 0.9
               pursuing = true
-              // if moving too slowly while pursuing, give an extra push toward the target
               const sp = Math.hypot(dx, dy)
-              if (sp < 0.25) {
-                dx += ux * 0.8
-                dy += uy * 0.8
-              }
+              if (sp < 0.25) { dx += ux * 0.8; dy += uy * 0.8 }
             } else {
-              // wander if prey is far
               dx += (Math.random() - 0.5) * 0.06
               dy += (Math.random() - 0.5) * 0.06
             }
           } else {
-            // wander if no prey exists
             dx += (Math.random() - 0.5) * 0.06
             dy += (Math.random() - 0.5) * 0.06
+            targetId = undefined
           }
-          // Note: no food steering for carnivores (they only chase herbivores)
         }
+        // Note: carnivores only chase herbivores (no food steering)
 
         if (type === 'neutral') {
           dx += (Math.random() - 0.5) * 0.1
@@ -304,15 +315,29 @@ export function LifeSim(): JSX.Element {
         }
 
         if (type === 'carnivore') {
-          for (let i = 0; i < agentsRef.current.length; i++) {
-            const prey = agentsRef.current[i]
-            if (prey.type === 'herbivore') {
-              const dist = Math.hypot(prey.x - x, prey.y - y)
-              if (dist < carnivoreCatchRadius) {
+          if (targetId !== undefined) {
+            const t = agentsRef.current.find(a => a.id === targetId && a.type === 'herbivore')
+            if (t) {
+              const de = Math.hypot(t.x - x, t.y - y)
+              if (de < carnivoreCatchRadius) {
                 energy += 45
-                eatenHerbivores.add(prey.id)
+                eatenHerbivores.add(t.id)
                 lastAteTicks = 0
-                break
+                targetId = undefined
+              }
+            }
+          }
+          if (targetId === undefined) {
+            for (let i = 0; i < agentsRef.current.length; i++) {
+              const prey = agentsRef.current[i]
+              if (prey.type === 'herbivore') {
+                const dist = Math.hypot(prey.x - x, prey.y - y)
+                if (dist < carnivoreCatchRadius) {
+                  energy += 45
+                  eatenHerbivores.add(prey.id)
+                  lastAteTicks = 0
+                  break
+                }
               }
             }
           }
