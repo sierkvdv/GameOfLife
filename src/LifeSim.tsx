@@ -13,6 +13,7 @@ interface Agent {
   size: number
   type: 'carnivore' | 'herbivore' | 'neutral'
   reproCooldown?: number
+  metabolism: number
 }
 
 interface Food {
@@ -46,19 +47,23 @@ export function LifeSim(): JSX.Element {
     for (let i = 0; i < INITIAL_AGENTS; i++) {
       const typeRand = Math.random()
       const type: Agent['type'] = typeRand < 0.55 ? 'herbivore' : typeRand < 0.9 ? 'neutral' : 'carnivore'
+      const baseEnergy = type === 'herbivore' ? 35 : type === 'carnivore' ? 55 : 40
+      const baseMetabolism = type === 'carnivore' ? 0.14 : type === 'herbivore' ? 0.07 : 0.055
+      const metabolism = Math.max(0.02, baseMetabolism + (Math.random() - 0.5) * 0.03)
       initialAgents.push({
         id: i,
         x: Math.random() * WORLD_WIDTH,
         y: Math.random() * WORLD_HEIGHT,
         dx: (Math.random() - 0.5) * 2,
         dy: (Math.random() - 0.5) * 2,
-        energy: 100,
+        energy: baseEnergy,
         age: 0,
         speed: 0.5 + Math.random() * 1.2,
         vision: 40 + Math.random() * 20,
         size: 5,
         type,
-        reproCooldown: Math.floor(Math.random() * 300)
+        reproCooldown: Math.floor(Math.random() * 300),
+        metabolism,
       })
     }
     agentsRef.current = initialAgents
@@ -99,7 +104,11 @@ export function LifeSim(): JSX.Element {
       const currentHerbivores = agentsRef.current.filter((a) => a.type === 'herbivore').length
       let spawnedHerbivores = 0
       for (const agent of agentsRef.current) {
-        let { x, y, dx, dy, energy, age, speed, type, size, reproCooldown = 0 } = agent
+        let { x, y, dx, dy, energy, age, speed, type, size, reproCooldown = 0, metabolism } = agent
+        if (metabolism === undefined) {
+          const baseMetabolism = type === 'carnivore' ? 0.14 : type === 'herbivore' ? 0.07 : 0.055
+          metabolism = Math.max(0.02, baseMetabolism + (Math.random() - 0.5) * 0.03)
+        }
 
         const adjustedSpeed =
           type === 'herbivore' ? speed * herbivoreSpeed : type === 'carnivore' ? speed * carnivoreSpeed : speed * 0.8
@@ -201,7 +210,7 @@ export function LifeSim(): JSX.Element {
             const f = foodRef.current[i]
             const dist = Math.hypot(f.x - x, f.y - y)
             if (dist < 8) {
-              energy += 30
+              energy += 35
               foodRef.current.splice(i, 1)
               break
             }
@@ -209,7 +218,7 @@ export function LifeSim(): JSX.Element {
 
           // Reproduction: if energetic and not on cooldown, spawn a child with slight mutations
           if (
-            energy > 160 &&
+            energy > 150 &&
             reproCooldown <= 0 &&
             currentHerbivores + spawnedHerbivores < MAX_HERBIVORES
           ) {
@@ -221,17 +230,18 @@ export function LifeSim(): JSX.Element {
               y: y + (Math.random() - 0.5) * 10,
               dx: dx + (Math.random() - 0.5) * 0.5,
               dy: dy + (Math.random() - 0.5) * 0.5,
-              energy: 80,
+              energy: 35,
               age: 0,
               speed: childSpeed,
               vision: childVision,
               size: 5,
               type: 'herbivore',
               reproCooldown: 600,
+              metabolism: Math.max(0.02, (0.07 + (Math.random() - 0.5) * 0.03)),
             }
             updatedAgents.push(child)
             spawnedHerbivores += 1
-            energy *= 0.6
+            energy = 45
             reproCooldown = 600
           }
         }
@@ -251,7 +261,7 @@ export function LifeSim(): JSX.Element {
         }
 
         // Size follows energy (grow when eating, shrink when starving)
-        const sizeFromEnergy = Math.max(4, Math.min(12, 4 + energy * 0.04))
+        const sizeFromEnergy = Math.max(3, Math.min(10, 3 + energy * 0.03))
         size = sizeFromEnergy
 
         ctx.beginPath()
@@ -262,12 +272,12 @@ export function LifeSim(): JSX.Element {
         ctx.fill()
         ctx.stroke()
 
-        // Slower, more gradual energy decay
-        energy -= (type === 'carnivore' ? 0.15 : type === 'herbivore' ? 0.08 : 0.06) * timeScale
+        // Per-agent metabolism to avoid synchronized deaths
+        energy -= metabolism * timeScale
         age += 0.05
         if (reproCooldown > 0) reproCooldown -= 1
 
-        if (energy > 0 && age < 800) updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size, reproCooldown })
+        if (energy > 0 && age < 800) updatedAgents.push({ ...agent, x, y, dx, dy, energy, age, size, reproCooldown, metabolism })
       }
 
       agentsRef.current = updatedAgents
